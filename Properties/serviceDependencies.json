@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "apis1": {
+      "type": "apis"
+    },
+    "mongodb1": {
+      "ignored": "true",
+      "type": "mongodb"
+    }
+  }
+}

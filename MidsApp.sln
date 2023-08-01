@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MidsApp", "MidsApp.csproj", "{A602EB10-27FE-405D-BB6D-736DCE75C85F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A602EB10-27FE-405D-BB6D-736DCE75C85F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A602EB10-27FE-405D-BB6D-736DCE75C85F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A602EB10-27FE-405D-BB6D-736DCE75C85F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A602EB10-27FE-405D-BB6D-736DCE75C85F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {43A26436-84D3-4594-81F6-7FFED0D44BC0}
+	EndGlobalSection
+EndGlobal
