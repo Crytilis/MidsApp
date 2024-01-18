@@ -13,18 +13,15 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MidsApp.Settings;
 using MongoDB.Driver;
-using Serilog;
 
 namespace MidsApp
 {
@@ -40,22 +37,6 @@ namespace MidsApp
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
-            // Configure defaults for the web host
-            builder.Host.ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder
-                    .ConfigureLogging(logging =>
-                    {
-                        logging.AddConsole();
-                        logging.SetMinimumLevel(LogLevel.Information);
-                    })
-                    .UseKestrel();
-            });
-
-            // Add Serilog to manage logging for the host
-            builder.Host.UseSerilog((context, configuration) =>
-                configuration.ReadFrom.Configuration(context.Configuration));
 
             // Add services to the container.
             builder.Services.AddControllers()
@@ -73,7 +54,7 @@ namespace MidsApp
                     Version = "v1",
                     Title = "MidsReborn API",
                     Description = "This API is designed for MidsReborn.",
-                    TermsOfService = new Uri("https://mids.app:4001/terms.html")
+                    TermsOfService = new Uri("https://mids.app/terms.html")
                 });
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "MidsApp.xml"));
             });
@@ -201,7 +182,6 @@ namespace MidsApp
                 app.UseHsts();
             }
 
-            app.UseSerilogRequestLogging();
             app.UseHttpsRedirection();
             app.UseRouting();
 
