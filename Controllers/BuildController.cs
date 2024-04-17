@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MidsApp.Database;
 using MidsApp.Models;
 using MidsApp.Utils;
 
@@ -23,93 +24,86 @@ namespace MidsApp.Controllers
         }
 
         /// <summary>
-        /// Requests an ID to be used when requesting a short URL.
+        /// Submits a new build record to the database.
         /// </summary>
-        /// <returns>object</returns>
-        /// <response code="200">Generated Snowflake Id</response>
+        /// <param name="buildDto">The build data transfer object containing information necessary to create a new build record.</param>
+        /// <returns>An IActionResult that contains the result of the submission operation.</returns>
+        /// <remarks>
+        /// This endpoint is anonymous and accepts JSON data. It checks the model state for validation errors before proceeding
+        /// to create a new build record. Depending on the success of the operation, it returns either an OK (200) response with the operation result
+        /// or a BadRequest (400) with error details.
+        /// </remarks>
         [AllowAnonymous]
-        [HttpGet("requestId")]
-        [ProducesResponseType(typeof(Snowflake), 200, MediaTypeNames.Application.Json)]
-        public async Task<IActionResult> GetId()
+        [HttpPost("submit")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(OperationResult<string>), 200)]
+        [ProducesResponseType(typeof(OperationResult<string>), 400)]
+        public async Task<IActionResult> SubmitBuild([FromBody] BuildRecordDto buildDto)
         {
-            var generatedId = await _repository.GenerateSnowflake();
-            var id = generatedId.ToString();
-            var snowflake = new Snowflake(id);
-            return Ok(snowflake);
-        }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var recordResult = await _repository.CreateAsync(buildDto);
 
-        /// <summary>
-        /// Submits a build for sharing
-        /// </summary>
-        /// <param name="submission"></param>
-        /// <returns>object</returns>
-        /// <response code="200">Success Response</response>
-        /// <response code="400">Failure Response</response>
-        [AllowAnonymous]
-        [HttpPost("submit")] 
-        [Consumes("application/json")] 
-        [ProducesResponseType(typeof(OperationResult), 200, MediaTypeNames.Application.Json)]
-        public async Task<IActionResult> SubmitBuild(Submission submission)
-        {
-            if (!string.IsNullOrWhiteSpace(submission.Id) && submission.Id.Length < 19)
-            {
-                return ValidationProblem(new ValidationProblemDetails
-                    { Detail = "Invalid payload data" });
-            }
-
-            if (string.IsNullOrWhiteSpace(submission.Data))
-            {
-                return ValidationProblem(new ValidationProblemDetails
-                    { Detail = "Invalid payload data" });
-            }
-
-            if (string.IsNullOrWhiteSpace(submission.Image))
-            {
-                return ValidationProblem(new ValidationProblemDetails
-                    { Detail = "Invalid payload data" });
-            }
-
-            var recordResult = await _repository.CreateRecord(submission.Id, submission.Data, submission.Image);
-            if (recordResult.Success)
+            if (recordResult.IsSuccessful)
             {
                 return Ok(recordResult);
             }
+
             return BadRequest(recordResult);
         }
 
         /// <summary>
-        /// Submits an html page update request for the specified build
+        /// Updates a build record by its shortcode.
         /// </summary>
-        /// <param name="updateModel"></param>
-        /// <returns>object</returns>
-        /// <response code="200">Success Response</response>
-        /// <response code="400">Failure Response</response>
+        /// <param name="shortcode">The shortcode of the build record to update.</param>
+        /// <param name="buildDto">The DTO containing the build data to update.</param>
+        /// <returns>An <see cref="IActionResult"/> encapsulating the success or failure of the update operation.</returns>
         [AllowAnonymous]
-        [HttpPost("update-page")]
-        [Consumes("application/json")] 
-        [ProducesResponseType(typeof(OperationResult), 200, MediaTypeNames.Application.Json)]
-        public async Task<IActionResult> UpdateBuildPage(UpdateModel updateModel)
+        [HttpPatch("update/{shortcode}")]
+        [Consumes(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(OperationResult<string>), 200)]
+        [ProducesResponseType(typeof(OperationResult<string>), 400)]
+        public async Task<IActionResult> UpdateBuildPage(string shortcode, [FromBody] BuildRecordDto buildDto)
         {
-            var record = await _repository.RetrieveRecord(updateModel.Code);
-            if (record == null)
+            if (!ModelState.IsValid)
             {
-                return ValidationProblem(new ValidationProblemDetails
-                    { Detail = "Invalid payload data" });
+                return BadRequest(OperationResult.Failure("Invalid data provided."));
             }
 
-            if (string.IsNullOrWhiteSpace(updateModel.PageData))
+            // Update the build record using the repository method, passing the shortcode and build data.
+            var result = await _repository.UpdateByShortcodeAsync(shortcode, buildDto);
+
+            // Determine the response based on the outcome of the update operation.
+            if (!result.IsSuccessful)
             {
-                return ValidationProblem(new ValidationProblemDetails
-                    { Detail = "Invalid payload data" });
+                return BadRequest(result.Message);
             }
 
-            var result = await _repository.UpdatePageData(updateModel.Code, updateModel.PageData);
-            if (result.Success)
+            if (result is IOperationResult<string> updateResult)
             {
-                return Ok(result);
+                return Ok(updateResult.Data);
             }
 
-            return BadRequest(result);
+            return BadRequest("Expected response data but unable to process.");
+        }
+
+        [AllowAnonymous]
+        [HttpGet("download/{code}")]
+        public async Task<IActionResult> DownloadBuild(string code)
+        {
+            var result = await _repository.GenerateBuildFileFromRecordAsync(code);
+            if (!result.IsSuccessful)
+            {
+                return NotFound(result.Message);
+            }
+
+            if (result is not IOperationResult<FileData> fileResult)
+            {
+                return BadRequest("Expected file data but was unable to process the request.");
+            }
+
+            var fileData = fileResult.Data;
+            return File(fileData.DataBytes, "application/octet-stream", fileData.FileName);
+
         }
 
         /// <summary>
@@ -121,13 +115,23 @@ namespace MidsApp.Controllers
         /// <response code="400">Failure Response</response>
         [AllowAnonymous]
         [HttpGet("{code}")]
-        [ProducesResponseType(typeof(DataFile), 200, MediaTypeNames.Application.Json)]
-        public async Task<IActionResult> GenerateBuild(string code)
+        [ProducesResponseType(typeof(SchemaData), 200, MediaTypeNames.Application.Json)]
+        public async Task<IActionResult> GetBuildDataForSchema(string code)
         {
-            var record = await _repository.RetrieveRecord(code);
-            if (record == null) return BadRequest("Record does not exist for given code.");
-            var importData = new DataFile(record.BuildData);
-            return Ok(importData);
+            var result = await _repository.RetrieveByShortcodeAsync(code);
+            if (!result.IsSuccessful)
+            {
+                NotFound(result.Message);
+            }
+
+            if (result is not IOperationResult<BuildRecord> buildResult)
+            {
+                return BadRequest("Expected to produce data but Unable to process.");
+            }
+
+            var schemaData = new SchemaData(buildResult.Data.BuildData);
+            return Ok(schemaData);
+
         }
 
         /// <summary>
@@ -153,11 +157,18 @@ namespace MidsApp.Controllers
         [HttpGet("image/{code}.{extension}")]
         public async Task<IActionResult> GetDynamicImage(string code, string extension)
         {
-            if (extension != "png") return NotFound();
-            var record = await _repository.RetrieveRecord(code);
-            if (record?.ImageData == null) return NotFound();
-            var imageData = Compression.DecompressFromBase64(record.ImageData);
+            if (extension != "png") return NotFound("The requested resource could not be found.");
+            var result = await _repository.RetrieveByShortcodeAsync(code);
+            if (!result.IsSuccessful)
+            {
+                return NotFound("The requested resource could not be found.");
+            }
+
+            if (result is not IOperationResult<BuildRecord> buildRecord)
+                return BadRequest("Expect file data but was unable to process.");
+            var imageData = Compression.DecompressFromBase64(buildRecord.Data.ImageData);
             return File(imageData, "image/png");
+
         }
 
         /// <summary>
