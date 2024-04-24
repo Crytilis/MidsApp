@@ -2,14 +2,6 @@
 
 The MidsReborn API, also known as MidsApp, is responsible for allowing users to share character builds from the MidsReborn application. It is also utilized by the MidsBot, a Discord bot for searching and retrieving builds.
 
-## Installation
-
-To use the MidsReborn API, follow these steps:
-
-1. Clone the repository to your local machine.
-2. Ensure you have the necessary dependencies installed.
-3. Build the project using your preferred IDE or command-line tool.
-
 ## Usage
 
 ### Endpoints
@@ -86,35 +78,6 @@ Content-Type: application/json
 ```
 
 ###
-
-## Configuration
-```json
-{
-  "ApiSettings": {
-    "BaseUrl": "REPLACE_WITH_YOUR_URL",
-    "AppProtocol":  "REPLACE_WITH_APP_PROTOCOL"
-  },
-  "MongoDb": {
-    "ConnectionString": "REPLACE_WITH_MONGODB_CONNECTION_STRING",
-    "DatabaseName": "REPLACE_WITH_YOUR_DATABASE_NAME"
-  },
-  "JwtSettings": {
-    "AccessKey": "REPLACE_WITH_ACCESS_KEY",
-    "RefreshKey": "REPLACE_WITH_REFRESH_KEY",
-    "Audience": "REPLACE_WITH_YOUR_URL",
-    "Issuer": "REPLACE_WITH_YOUR_URL",
-    "AccessExpires": 7,
-    "RefreshExpires": 14
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*"
-}
-```
 
 ## Contributing
 
