@@ -20,12 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="IdGen">
-      <HintPath>..\Crytilis\IdGen\IdGen.DependencyInjection\bin\Debug\net7.0\IdGen.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="midsapp.pfx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
