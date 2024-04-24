@@ -85,6 +85,37 @@ Content-Type: application/json
 "Tanker,Fire,Ice"
 ```
 
+###
+
+## Configuration
+```json
+{
+  "ApiSettings": {
+    "BaseUrl": "REPLACE_WITH_YOUR_URL",
+    "AppProtocol":  "REPLACE_WITH_APP_PROTOCOL"
+  },
+  "MongoDb": {
+    "ConnectionString": "REPLACE_WITH_MONGODB_CONNECTION_STRING",
+    "DatabaseName": "REPLACE_WITH_YOUR_DATABASE_NAME"
+  },
+  "JwtSettings": {
+    "AccessKey": "REPLACE_WITH_ACCESS_KEY",
+    "RefreshKey": "REPLACE_WITH_REFRESH_KEY",
+    "Audience": "REPLACE_WITH_YOUR_URL",
+    "Issuer": "REPLACE_WITH_YOUR_URL",
+    "AccessExpires": 7,
+    "RefreshExpires": 14
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
 ## Contributing
 
 Contributions to the MidsReborn API are welcome! Feel free to submit bug reports, suggest enhancements, or contribute code via pull requests.
