@@ -61,19 +61,19 @@ Content-Type: application/json
 ### Downloading a Build
 
 ```http
-GET /build/download/{code}
+GET /build/download/{shortcode}
 ```
 
 ### Retrieving Build Data for Schema
 
 ```http
-GET /build/schema/{code}
+GET /build/schema/{shortcode}
 ```
 
 ### Retrieving an Image
 
 ```http
-GET /build/image/{code}.png
+GET /build/image/{shortcode}.png
 ```
 
 ### Searching Builds
