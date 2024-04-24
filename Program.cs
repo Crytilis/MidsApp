@@ -7,7 +7,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using IdGen;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -21,6 +20,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MidsApp.Database;
+using MidsApp.Services;
 using MidsApp.Settings;
 using MongoDB.Driver;
 
@@ -35,7 +35,7 @@ namespace MidsApp
         /// Main Entry
         /// </summary>
         /// <param name="args"></param>
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -50,20 +50,15 @@ namespace MidsApp
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
-                options.SwaggerDoc("v1", new OpenApiInfo
+                options.SwaggerDoc("v2", new OpenApiInfo
                 {
-                    Version = "v1",
+                    Version = "v2",
                     Title = "MidsReborn API",
                     Description = "This API is designed for MidsReborn.",
-                    TermsOfService = new Uri("https://mids.app/terms.html")
+                    TermsOfService = new Uri("https://midsreborn.com/terms.html")
                 });
                 options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "MidsApp.xml"));
             });
-
-            // Declare variables for dependency injection (when needed)
-            var epoch = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var idOptions = new IdGeneratorOptions(new IdStructure(27, 12, 24), new DefaultTimeSource(epoch));
-            var idGenerator = new IdGenerator(0, idOptions);
 
             // Configure services for dependency injection
             var discordSettings = builder.Configuration.GetSection(nameof(DiscordSettings)).Get<DiscordSettings>();
@@ -79,11 +74,12 @@ namespace MidsApp
                 var database = databaseClient.GetDatabase(databaseSettings.DatabaseName);
                 return database;
             });
-            
-            builder.Services.AddSingleton(idGenerator);
-            builder.Services.AddScoped(typeof(BuildRepository<>));
 
-            // Add authentication methods used to secure endpoints when needed
+            builder.Services.AddSingleton<TtlInitializer>();
+            builder.Services.AddSingleton<IUrlBuilder, UrlBuilder>();
+            builder.Services.AddSingleton<IBuildRepository, BuildRepository>();
+
+            // Add authentication methods used to secure endpoints when needed (to be used later)
             builder.Services.AddAuthentication(options =>
                 {
                     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -118,7 +114,7 @@ namespace MidsApp
                         {
                             if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
                             {
-                                context.Response.Headers.Add("Token-Expired", "true");
+                                context.Response.Headers.Append("Token-Expired", "true");
                             }
 
                             return Task.CompletedTask;
@@ -175,7 +171,10 @@ namespace MidsApp
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v2/swagger.json", "API V2");
+                });
             }
             else
             {
@@ -191,7 +190,7 @@ namespace MidsApp
 
             app.MapControllers();
 
-            app.Run();
+            await app.RunAsync();
         }
     }
 }

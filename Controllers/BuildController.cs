@@ -1,6 +1,5 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Net.Mime;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,15 +9,20 @@ using MidsApp.Utils;
 
 namespace MidsApp.Controllers
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Controller responsible for handling build operations.
+    /// </summary>
     [ApiController]
     [Route("[controller]")]
     public class BuildController : ControllerBase
     {
-        private readonly BuildRepository<BuildRecord> _repository;
+        private readonly BuildRepository _repository;
 
-        /// <inheritdoc />
-        public BuildController(BuildRepository<BuildRecord> repository)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BuildController"/>.
+        /// </summary>
+        /// <param name="repository">Repository for handling build data operations.</param>
+        public BuildController(BuildRepository repository)
         {
             _repository = repository;
         }
@@ -26,43 +30,43 @@ namespace MidsApp.Controllers
         /// <summary>
         /// Submits a new build record to the database.
         /// </summary>
-        /// <param name="buildDto">The build data transfer object containing information necessary to create a new build record.</param>
-        /// <returns>An IActionResult that contains the result of the submission operation.</returns>
-        /// <remarks>
-        /// This endpoint is anonymous and accepts JSON data. It checks the model state for validation errors before proceeding
-        /// to create a new build record. Depending on the success of the operation, it returns either an OK (200) response with the operation result
-        /// or a BadRequest (400) with error details.
-        /// </remarks>
+        /// <param name="buildDto">DTO containing the build data.</param>
+        /// <returns>The result of the creation operation.</returns>
         [AllowAnonymous]
         [HttpPost("submit")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(OperationResult<string>), 200)]
-        [ProducesResponseType(typeof(OperationResult<string>), 400)]
+        [ProducesResponseType(typeof(OperationResult<TransactionResult>), 200)]
+        [ProducesResponseType(typeof(OperationResult), 400)]
         public async Task<IActionResult> SubmitBuild([FromBody] BuildRecordDto buildDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var recordResult = await _repository.CreateAsync(buildDto);
+            var result = await _repository.CreateAsync(buildDto);
 
-            if (recordResult.IsSuccessful)
+            if (!result.IsSuccessful)
             {
-                return Ok(recordResult);
+                return BadRequest(result);
             }
 
-            return BadRequest(recordResult);
+            if (result is IOperationResult<TransactionResult> submissionResult)
+            {
+                return Ok(submissionResult);
+            }
+
+            return BadRequest("Expected data but unable to process");
         }
 
         /// <summary>
-        /// Updates a build record by its shortcode.
+        /// Updates an existing build record identified by its shortcode.
         /// </summary>
-        /// <param name="shortcode">The shortcode of the build record to update.</param>
-        /// <param name="buildDto">The DTO containing the build data to update.</param>
-        /// <returns>An <see cref="IActionResult"/> encapsulating the success or failure of the update operation.</returns>
+        /// <param name="shortcode">The shortcode identifying the build.</param>
+        /// <param name="buildDto">DTO containing updated build data.</param>
+        /// <returns>The result of the update operation.</returns>
         [AllowAnonymous]
         [HttpPatch("update/{shortcode}")]
         [Consumes(MediaTypeNames.Application.Json)]
-        [ProducesResponseType(typeof(OperationResult<string>), 200)]
-        [ProducesResponseType(typeof(OperationResult<string>), 400)]
-        public async Task<IActionResult> UpdateBuildPage(string shortcode, [FromBody] BuildRecordDto buildDto)
+        [ProducesResponseType(typeof(OperationResult<TransactionResult>), 200)]
+        [ProducesResponseType(typeof(OperationResult), 400)]
+        public async Task<IActionResult> UpdateBuild(string shortcode, [FromBody] BuildRecordDto buildDto)
         {
             if (!ModelState.IsValid)
             {
@@ -78,16 +82,24 @@ namespace MidsApp.Controllers
                 return BadRequest(result.Message);
             }
 
-            if (result is IOperationResult<string> updateResult)
+            if (result is IOperationResult<TransactionResult> updateResult)
             {
-                return Ok(updateResult.Data);
+                return Ok(updateResult);
             }
 
             return BadRequest("Expected response data but unable to process.");
         }
 
+        /// <summary>
+        /// Downloads a build file using a unique code.
+        /// </summary>
+        /// <param name="code">The unique code to identify the build.</param>
+        /// <returns>A file stream containing the build data.</returns>
         [AllowAnonymous]
         [HttpGet("download/{code}")]
+        [Produces("application/octet-stream")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(OperationResult), 404)]
         public async Task<IActionResult> DownloadBuild(string code)
         {
             var result = await _repository.GenerateBuildFileFromRecordAsync(code);
@@ -107,15 +119,15 @@ namespace MidsApp.Controllers
         }
 
         /// <summary>
-        /// Retrieves a build from the database matching the provided short URL code.
+        /// Retrieves build data for a specific schema identified by a code.
         /// </summary>
-        /// <param name="code"></param>
-        /// <returns>JSON</returns>
-        /// <response code="200">Success Response</response>
-        /// <response code="400">Failure Response</response>
+        /// <param name="code">The code identifying the build.</param>
+        /// <returns>Build data formatted as per schema requirements.</returns>
         [AllowAnonymous]
-        [HttpGet("{code}")]
-        [ProducesResponseType(typeof(SchemaData), 200, MediaTypeNames.Application.Json)]
+        [HttpGet("schema/{code}")]
+        [Produces(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(typeof(SchemaData), 200)]
+        [ProducesResponseType(typeof(OperationResult), 404)]
         public async Task<IActionResult> GetBuildDataForSchema(string code)
         {
             var result = await _repository.RetrieveByShortcodeAsync(code);
@@ -135,26 +147,30 @@ namespace MidsApp.Controllers
         }
 
         /// <summary>
-        /// Requests a schema redirect for a Build 
+        /// Redirects to a build-specific schema based on a unique code.
         /// </summary>
-        /// <param name="code"></param>
-        /// <returns>Redirect to schema</returns>
+        /// <param name="code">The unique code used for redirection.</param>
+        /// <returns>A redirect result to the schema URL.</returns>
         [AllowAnonymous]
-        [HttpGet("request/{code}")]
-        public IActionResult RequestBuild(string code)
+        [HttpGet("redirect-to-schema/{code}")]
+        public IActionResult RedirectToSchema(string code)
         {
-            var url = $"mrb://{code}";
-            return new RedirectResult(url, true);
+            var schemaUrl = Url.Action(nameof(GetBuildDataForSchema), new { code });
+            if (schemaUrl is null) return NotFound($"Unable to generate a URL for the given code: {code}");
+            return new RedirectResult(schemaUrl);
         }
 
         /// <summary>
-        /// Retrieves a build image from the database matching the specified id and extension.
+        /// Retrieves an image associated with a build, identified by code and file extension.
         /// </summary>
-        /// <param name="code"></param>
-        /// <param name="extension"></param>
-        /// <returns>Image</returns>
+        /// <param name="code">The build code.</param>
+        /// <param name="extension">The file extension, currently only 'png' supported.</param>
+        /// <returns>The image file associated with the build.</returns>
         [AllowAnonymous]
         [HttpGet("image/{code}.{extension}")]
+        [Produces("image/png")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(OperationResult), 404)]
         public async Task<IActionResult> GetDynamicImage(string code, string extension)
         {
             if (extension != "png") return NotFound("The requested resource could not be found.");
@@ -165,28 +181,37 @@ namespace MidsApp.Controllers
             }
 
             if (result is not IOperationResult<BuildRecord> buildRecord)
-                return BadRequest("Expect file data but was unable to process.");
+                return BadRequest("Expected file data but was unable to process.");
             var imageData = Compression.DecompressFromBase64(buildRecord.Data.ImageData);
             return File(imageData, "image/png");
-
         }
 
         /// <summary>
-        /// Displays a build to a user
+        /// Retrieves a list of build records based on search criteria.
         /// </summary>
-        /// <param name="code"></param>
-        /// <param name="extension"></param>
-        /// <returns>Page</returns>
+        /// <param name="searchString">The search string representing the criteria for searching build records. Multiple values should be separated by a space.</param>
+        /// <returns>Returns a list of build records matching the search criteria.</returns>
+        /// <response code="200">Returns the list of build records matching the search criteria.</response>
+        /// <response code="400">If an unexpected result type is received from the build repository.</response>
+        /// <response code="404">If no build records are found matching the search criteria.</response>
         [AllowAnonymous]
-        [HttpGet("preview/{code}.{extension}")]
-        public async Task<IActionResult> ViewBuild(string code, string extension)
+        [HttpGet("list")]
+        [Produces("application/json")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> GetBuilds([FromBody] string searchString)
         {
-            var record = await _repository.RetrieveRecord(code);
-            if (record == null || extension != "htm") return NotFound();
-            var pageData = Compression.DecompressFromBase64(record.PageData);
-            var html = Encoding.UTF8.GetString(pageData);
-            Console.WriteLine(html);
-            return base.Content(html, "text/html");
+            var searchResult = await _repository.FetchRecordsByValueAsync(searchString);
+            if (!searchResult.IsSuccessful)
+            {
+                return NotFound(searchResult.Message);
+            }
+
+            if (searchResult is not IOperationResult<IEnumerable<BuildRecord>> buildRecords)
+            {
+                return BadRequest("Unexpected result type received from build repository.");
+            }
+
+            return Ok(buildRecords);
         }
-    }
+     }
 }

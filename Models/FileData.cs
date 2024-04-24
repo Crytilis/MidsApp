@@ -8,22 +8,22 @@
         /// <summary>
         /// Gets or sets the name of the character. If null, the file name is generated without a character name.
         /// </summary>
-        public string? CharacterName { get; set; }
+        public string? CharacterName { get; init; }
 
         /// <summary>
         /// Gets or sets the archetype of the character. This is a required field.
         /// </summary>
-        public required string Archetype { get; set; }
+        public required string Archetype { get; init; }
 
         /// <summary>
         /// Gets or sets the primary power set of the character. This is a required field.
         /// </summary>
-        public required string Primary { get; set; }
+        public required string Primary { get; init; }
 
         /// <summary>
         /// Gets or sets the secondary power set of the character. This is a required field.
         /// </summary>
-        public required string Secondary { get; set; }
+        public required string Secondary { get; init; }
 
         /// <summary>
         /// Generates a file name based on the character's name, archetype, and power sets.
@@ -39,6 +39,6 @@
         /// <summary>
         /// Gets or sets the byte array that represents the serialized form of the character build data. This is a required field.
         /// </summary>
-        public required byte[] DataBytes { get; set; }
+        public required byte[] DataBytes { get; init; }
     }
 }
